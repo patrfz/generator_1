@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QR Generator //Alpha</title>
+
+</head>
+<body>
+
+    <h1>QR Generator</h1>
+
+    <!-- MAIN FORM -->
+    <label>URL:</label>
+    <input type="text" id="qrUrl" required>
+
+    <label for="qrName">QR Name:</label>
+    <input type="text" id="qrName" placeholder="My Qr About...">
+
+    <button id="previewBtn">Preview</button>
+
+    <hr>
+
+    <!-- PREVIEW -->
+    <div id="previewSection" style="display:none;">
+        <h2>Preview</h2>
+        <img id="previewImg" width="400" height="400" style="border:1px solid #ccc;">
+    </div>
+
+    <!-- URL OPPENER -->
+    <div id="openLinkContainer" style="margin-top: 10px; display: none;">
+        <button type="button" id="openLinkBtn">Review URL (Open in new tab)</button>
+    </div>
+
+    <hr>
+
+    <!-- buttons for image thing -->
+    <div id="optionsSection" style="display:none;">
+        <h3>Download Options</h3>
+
+        <label>Format:</label>
+        <select id="qrFormat">
+            <option value="png">PNG</option>
+            <option value="svg">SVG</option>
+            <option value="eps">EPS</option>
+        </select>
+
+        <br><br>
+
+        <label>Size:</label>
+        <select id="qrSize">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+            <option value="xl">Extra Large</option>
+        </select>
+
+        <br><br>
+
+        <button id="downloadBtn" disabled>Download</button>
+    </div>
+
+    <hr>
+
+    <!-- history -->
+    <div id="historyTab">
+        <h2>History</h2>
+        <div id="historyList"></div>
+
+        <button onclick="clearHistory()">Clear History</button>
+    </div>
+
+
+<!-- ========================= script parts (here's where black magic starts) ========================= -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    // preview QR
+    document.getElementById("previewBtn").addEventListener("click", async function () {
+        const url = document.getElementById("qrUrl").value.trim();
+        const name = document.getElementById("qrName").value.trim();
+
+        if (!url) {
+            alert("---Provide URL---");
+            return;
+        }
+
+        // Save to history
+        saveToHistory(url, name);
+
+        // Generate preveiw
+        const previewUrl = `/qr/preview?url=${encodeURIComponent(url)}&format=png&size=medium`;
+        document.getElementById("previewImg").src = previewUrl;
+
+        // unlock functions
+        document.getElementById("openLinkContainer").style.display = "block";
+        document.getElementById("previewSection").style.display = "block";
+        document.getElementById("optionsSection").style.display = "block";
+
+        document.getElementById("downloadBtn").disabled = false;
+    });
+
+
+    // open URL
+    document.getElementById("openLinkBtn").addEventListener("click", () => {
+        const url = document.getElementById("qrUrl").value.trim();
+        if (!url) return;
+
+        let final = url;
+        if (!final.startsWith("http://") && !final.startsWith("https://")) {
+            final = "https://" + final;
+        }
+
+        window.open(final, "_blank");
+    });
+
+
+    // download script
+    document.getElementById("downloadBtn").addEventListener("click", function () {
+        const url = document.getElementById("qrUrl").value;
+        const size = document.getElementById("qrSize").value;
+        const format = document.getElementById("qrFormat").value;
+        const name = document.getElementById("qrName").value || "qr";
+
+        const downloadUrl =
+            `/qr/download?url=${encodeURIComponent(url)}&format=${format}&size=${size}&name=${encodeURIComponent(name)}`;
+
+        window.location.href = downloadUrl;
+    });
+
+
+    // history script
+    function getHistoryList() {
+        try {
+            return JSON.parse(localStorage.getItem("qrHistory")) || [];
+        } catch {
+            return [];
+        }
+    }
+
+    function setHistoryList(list) {
+        localStorage.setItem("qrHistory", JSON.stringify(list));
+    }
+
+    window.saveToHistory = function (url, name) {
+        const history = getHistoryList();
+        history.unshift({
+            url: url,
+            name: name || "(sin nombre)",
+            date: new Date().toLocaleString()
+        });
+
+        setHistoryList(history.slice(0, 50));
+        renderHistory();
+    };
+
+    window.clearHistory = function () {
+        localStorage.removeItem("qrHistory");
+        renderHistory();
+    };
+
+    window.deleteHistoryItem = function (index) {
+        const hist = getHistoryList();
+        hist.splice(index, 1);
+        setHistoryList(hist);
+        renderHistory();
+    };
+
+    window.regenerateQR = function (url, name) {
+        document.getElementById("qrUrl").value = url;
+        document.getElementById("qrName").value = name;
+        document.getElementById("previewBtn").click();
+    };
+
+    function renderHistory() {
+        const container = document.getElementById("historyList");
+        const history = getHistoryList();
+
+        container.innerHTML = "";
+
+        if (history.length === 0) {
+            const empty = document.createElement("div");
+            empty.style.color = "#666";
+            empty.style.fontStyle = "italic";
+            empty.textContent = "You haven't generated any QR codes yet. Generate your first code!";
+            container.appendChild(empty);
+            return;
+        }
+
+        history.forEach((item, idx) => {
+            const box = document.createElement("div");
+            box.style.borderBottom = "1px solid #ccc";
+            box.style.padding = "8px 0";
+
+            const title = document.createElement("h3");
+            title.textContent = item.name;
+
+            const date = document.createElement("div");
+            date.style.fontSize = "12px";
+            date.style.color = "#555";
+            date.textContent = item.date;
+
+            const urlTxt = document.createElement("p");
+            urlTxt.textContent = item.url;
+            urlTxt.style.wordBreak = "break-all";
+
+            const btns = document.createElement("div");
+            btns.style.display = "flex";
+            btns.style.gap = "10px";
+
+            const regen = document.createElement("button");
+            regen.textContent = "Re-generate";
+            regen.onclick = () => regenerateQR(item.url, item.name);
+
+            const open = document.createElement("button");
+            open.textContent = "Open";
+            open.onclick = () => {
+                let final = item.url;
+                if (!final.startsWith("http://") && !final.startsWith("https://"))
+                    final = "https://" + final;
+                window.open(final, "_blank");
+            };
+
+            const del = document.createElement("button");
+            del.textContent = "Delete";
+            del.onclick = () => deleteHistoryItem(idx);
+
+            btns.appendChild(regen);
+            btns.appendChild(open);
+            btns.appendChild(del);
+
+            box.appendChild(title);
+            box.appendChild(date);
+            box.appendChild(urlTxt);
+            box.appendChild(btns);
+
+            container.appendChild(box);
+        });
+    }
+
+    // render history
+    renderHistory();
+});
+</script>
+
+</body>
+</html>
+
