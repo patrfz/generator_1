@@ -1,0 +1,422 @@
+<!-- Version estable
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generador de QR</title>
+</head>
+<body>
+    <h1>Generador de Código QR</h1>
+
+    <form action="/qr/download" method="get">
+        <label>URL:</label>
+        <input type="text" name="url" required>
+
+        <label>Formato:</label>
+        <select name="format">
+            <option value="png">PNG</option>
+            <option value="svg">SVG</option>
+            <option value="eps">EPS</option>
+        </select>
+
+        <button type="submit">Generar QR</button>
+    </form>
+</body>
+</html>
+-->
+<!-- uvicorn main:app --reload --host 0.0.0.0 --port 8000 -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QR Generator //Alpha</title>
+</head>
+<body>
+
+    <h1>QR Generator</h1>
+
+    <!-- FORMULARIO PRINCIPAL -->
+    <label>URL:</label>
+    <input type="text" id="qrUrl" required>
+    <label for="qrName">QR Name:</label>
+    <input type="text" id="qrName" placeholder="My Qr About...">
+
+    <button id="previewBtn">Preview</button>
+
+    <hr>
+
+    <!-- CONTENEDOR DE PREVIEW (OCULTO AL INICIO) -->
+    <div id="previewSection" style="display:none;">
+        <h2>Preview</h2>
+        <img id="previewImg" width="400" height="400" style="border:1px solid #ccc;">
+    </div>
+
+    <!-- Botón para abrir el enlace ingresado -->
+    <div id="openLinkContainer" style="margin-top: 10px; display: none;">
+        <button type="button" id="openLinkBtn">Review URL (Open in new tab)</button>
+    </div>
+
+    <hr>
+
+    <!-- CONTROLES AVANZADOS (OCULTOS AL INICIO) -->
+    <div id="optionsSection" style="display:none;">
+        <h3>Download Options</h3>
+
+        <label>Format:</label>
+        <select id="qrFormat">
+            <option value="png">PNG</option>
+            <option value="svg">SVG</option>
+            <option value="eps">EPS</option>
+        </select>
+
+        <br><br>
+
+        <label>Size:</label>
+        <select id="qrSize">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+            <option value="xl">Extra Large</option>
+        </select>
+
+        <br><br>
+
+        <button id="downloadBtn" disabled>Download</button>
+    </div>
+
+    <div id="historyTab" class="tabContent">
+        <h2>History</h2>
+        <div id="historyList"></div>
+
+        <button onclick="clearHistory()">Clear History</button>
+    </div>
+
+
+    <!-- ------------------------------------------------------------ -->
+
+    <script>
+        // Lógica del botón Preview
+        document.getElementById("previewBtn").addEventListener("click", async function() {
+            const url = document.getElementById("qrUrl").value;
+            if (!url.trim()) {
+                alert("---Provide URL---");
+                return;
+            }
+
+            // Llamada al backend para pedir vista previa
+            const previewUrl = `/qr/preview?url=${encodeURIComponent(url)}&format=png&size=medium`;
+
+            // Preview Image
+            document.getElementById("previewImg").src = previewUrl;
+
+            document.getElementById("openLinkContainer").style.display = "block";
+
+            // Unlock settings
+            document.getElementById("previewSection").style.display = "block";
+            document.getElementById("optionsSection").style.display = "block";
+
+            // Unlock Download
+            document.getElementById("downloadBtn").disabled = false;
+        });
+
+        // Preview Link
+// Obtener elementos
+const textInput = document.getElementById("qrUrl");
+const openLinkBtn = document.getElementById("openLinkBtn");
+
+// Listener del botón
+openLinkBtn.addEventListener("click", () => {
+    const value = textInput.value.trim();
+
+    // Si el campo está vacío, no hacemos nada
+    if (!value) {
+        console.log("No hay texto para abrir.");
+        return;
+    }
+
+    // Normalizar URL si no empieza con http:// o https://
+    let finalURL = value;
+    if (!value.startsWith("http://") && !value.startsWith("https://")) {
+        finalURL = "https://" + value;
+    }
+
+    console.log("Abriendo:", finalURL);
+    window.open(finalURL, "_blank");   // abre en nueva pestaña
+});
+
+
+
+
+
+        // Download
+        document.getElementById("downloadBtn").addEventListener("click", function() {
+            const url = document.getElementById("qrUrl").value;
+            const size = document.getElementById("qrSize").value;
+            const format = document.getElementById("qrFormat").value;
+
+            const downloadUrl = `/qr/download?url=${encodeURIComponent(url)}&format=${format}&size=${size}`;
+
+            // Abrir descarga
+            window.location.href = downloadUrl;
+        });
+    </script>
+
+ <!--    <script>
+    const formatSelect = document.getElementById("qrFormat");
+    const sizeSelect = document.getElementById("qrSize");
+
+    formatSelect.addEventListener("change", function() {
+        const format = formatSelect.value;
+
+        // Si formato es SVG o EPS → deshabilitar tamaño
+        if (format === "svg" || format === "eps") {
+            sizeSelect.disabled = true;
+            sizeSelect.style.opacity = "0.5";   // Visualmente grisado
+        } else {
+            sizeSelect.disabled = false;
+            sizeSelect.style.opacity = "1";
+        }
+    });
+</script>
+
+<script>
+function saveToHistory(url, name) {
+    let history = JSON.parse(localStorage.getItem("qrHistory")) || [];
+
+    if (url && url.trim() !== "") {
+
+        history.unshift({
+            url: url,
+            name: name || "(sin nombre)",
+            date: new Date().toLocaleString()
+        });
+    }
+
+    localStorage.setItem("qrHistory", JSON.stringify(history));
+    renderHistory();
+}
+</script>
+
+<script>
+function renderHistory() {
+    const historyList = document.getElementById("historyList");
+    let history = JSON.parse(localStorage.getItem("qrHistory")) || [];
+
+    historyList.innerHTML = "";
+
+    if (history.length === 0) {
+        historyList.innerHTML = `
+            <li style="color:#888; font-style:italic;">
+                No QR codes generated yet.
+            </li>
+        `;
+        return;
+    }
+
+    history.forEach(item => {
+        const li = document.createElement("li");
+
+        li.innerHTML = `
+            <h3>${item.name}</h3>
+            <p>${item.url}</p>
+            <small>${item.date}</small><br>
+            <button onclick="regenerateQR('${item.url}', '${item.name}')">
+                Re-generate
+            </button>
+        `;
+
+        historyList.appendChild(li);
+    });
+}
+</script>
+
+<script>
+document.getElementById("previewBtn").addEventListener("click", function() {
+    const url = document.getElementById("qrUrl").value;
+
+    if (!url.trim()) return;
+
+    // Guardar en historial
+    const name = document.getElementById("qrName").value;
+    saveToHistory(url, name);
+
+    // Aquí va tu lógica actual de generar preview
+});
+</script>
+
+<script>
+function regenerateQR(url, name) {
+    document.getElementById("qrUrl").value = url;
+    document.getElementById("qrName").value = name;
+
+    document.getElementById("previewBtn").click();
+}
+</script>
+
+<script>
+function clearHistory() {
+    localStorage.removeItem("qrHistory");
+    renderHistory();
+}
+</script> -->
+
+
+
+<script>
+// ----------------- helpers de localStorage -----------------
+function getHistoryList() {
+    try {
+        return JSON.parse(localStorage.getItem("qrHistory")) || [];
+    } catch (e) {
+        console.error("Error leyendo historial:", e);
+        return [];
+    }
+}
+
+function setHistoryList(list) {
+    localStorage.setItem("qrHistory", JSON.stringify(list));
+}
+
+// ----------------- guardar en historial -----------------
+function saveToHistory(url, name) {
+    if (!url || !url.trim()) return;
+    const history = getHistoryList();
+
+    history.unshift({
+        url: url,
+        name: name && name.trim() ? name.trim() : "(sin nombre)",
+        date: new Date().toLocaleString()
+    });
+
+    // opcional: limitar a 50 items
+    const limited = history.slice(0, 50);
+    setHistoryList(limited);
+    renderHistory();
+}
+
+// ----------------- renderizar historial (trabaja con <div id="historyList">) -----------------
+function renderHistory() {
+    const container = document.getElementById("historyList");
+    if (!container) return;
+
+    const history = getHistoryList();
+    container.innerHTML = ""; // limpiar
+
+    if (history.length === 0) {
+        // Mensaje amigable cuando está vacío
+        const empty = document.createElement("div");
+        empty.style.color = "#666";
+        empty.style.fontStyle = "italic";
+        empty.textContent = "You haven't generated any QR codes yet. Generate your first code!";
+        container.appendChild(empty);
+        return;
+    }
+
+    // Crear lista de entradas
+    history.forEach((item, idx) => {
+        const entry = document.createElement("div");
+        entry.className = "history-entry";
+        entry.style.borderBottom = "1px solid #eee";
+        entry.style.padding = "8px 0";
+
+        // Nombre (h3) y fecha
+        const title = document.createElement("h3");
+        title.textContent = item.name;
+        title.style.margin = "0 0 6px 0";
+
+        const meta = document.createElement("div");
+        meta.style.fontSize = "12px";
+        meta.style.color = "#777";
+        meta.textContent = item.date;
+
+        const urlP = document.createElement("p");
+        urlP.style.margin = "6px 0";
+        urlP.style.wordBreak = "break-all";
+        urlP.textContent = item.url;
+
+        // Botones: Re-generate, Open Link, (opcional) Delete
+        const btnContainer = document.createElement("div");
+        btnContainer.style.marginTop = "6px";
+        btnContainer.style.display = "flex";
+        btnContainer.style.gap = "8px";
+
+        const regenBtn = document.createElement("button");
+        regenBtn.type = "button";
+        regenBtn.textContent = "Re-generate";
+        regenBtn.addEventListener("click", () => {
+            regenerateQR(item.url, item.name);
+        });
+
+        const openBtn = document.createElement("button");
+        openBtn.type = "button";
+        openBtn.textContent = "Open";
+        openBtn.addEventListener("click", () => {
+            let final = item.url;
+            if (!final.startsWith("http://") && !final.startsWith("https://")) {
+                final = "https://" + final;
+            }
+            window.open(final, "_blank", "noopener");
+        });
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.textContent = "Delete";
+        deleteBtn.addEventListener("click", () => {
+            deleteHistoryItem(idx);
+        });
+
+        btnContainer.appendChild(regenBtn);
+        btnContainer.appendChild(openBtn);
+        btnContainer.appendChild(deleteBtn);
+
+        // ensamblar entry
+        entry.appendChild(title);
+        entry.appendChild(meta);
+        entry.appendChild(urlP);
+        entry.appendChild(btnContainer);
+
+        container.appendChild(entry);
+    });
+}
+
+// ----------------- borrar historial completo -----------------
+function clearHistory() {
+    localStorage.removeItem("qrHistory");
+    renderHistory();
+}
+
+// ----------------- borrar un item -----------------
+function deleteHistoryItem(index) {
+    const history = getHistoryList();
+    if (index < 0 || index >= history.length) return;
+    history.splice(index, 1);
+    setHistoryList(history);
+    renderHistory();
+}
+
+// ----------------- regenerar (rellena inputs y dispara preview) -----------------
+function regenerateQR(url, name) {
+    const urlInput = document.getElementById("qrUrl");
+    const nameInput = document.getElementById("qrName");
+    const previewBtn = document.getElementById("previewBtn");
+
+    if (urlInput) urlInput.value = url;
+    if (nameInput) nameInput.value = name;
+
+    // Llamar al preview: simulamos click si existe
+    if (previewBtn) {
+        previewBtn.click();
+    } else {
+        // alternativamente, llama directamente a la función que genera preview si la tienes
+        console.warn("previewBtn no encontrado; asegúrate de tener un botón con id 'previewBtn'");
+    }
+}
+
+// ----------------- inicialización al cargar la página -----------------
+document.addEventListener("DOMContentLoaded", () => {
+    // asegurarse de que el botón Clear use la función (si no usas onclick inline)
+    const clearBtn = document.getElementById("clearHistoryBtn");
+    if (clearBtn) clearBtn.addEventListener("click", clearHistory);
+
+    renderHistory();
+});
+</script>
+
